@@ -1,0 +1,115 @@
+actions {
+  http {
+    test_WH_D {
+      connector = connector_test_WH_D
+      enable = false
+      parameters {
+        headers {}
+        max_retries = 2
+        method = post
+        path = ""
+      }
+      resource_opts {
+        health_check_interval = 15s
+        inflight_window = 100
+        max_buffer_bytes = 1GB
+        query_mode = async
+        request_ttl = 45s
+        start_after_created = true
+        start_timeout = 5s
+        worker_pool_size = 4
+      }
+    }
+  }
+}
+authentication = [
+  {
+    backend = mongodb
+    collection = users
+    database = mqtt
+    filter {username = "${username}"}
+    mechanism = password_based
+    mongo_type = single
+    password_hash_algorithm {name = sha256, salt_position = suffix}
+    password_hash_field = password_hash
+    pool_size = 8
+    salt_field = salt
+    server = "host.docker.internal:27017"
+    srv_record = false
+    ssl {enable = false, verify = verify_peer}
+    topology {connect_timeout_ms = 20s}
+  }
+]
+authorization {
+  cache {
+    enable = true
+    max_size = 32
+    ttl = 1m
+  }
+  deny_action = ignore
+  no_match = allow
+  sources = [
+    {
+      collection = users
+      database = mqtt
+      filter {username = "${username}"}
+      mongo_type = single
+      pool_size = 8
+      server = "host.docker.internal:27017"
+      srv_record = false
+      ssl {enable = false, verify = verify_peer}
+      topology {connect_timeout_ms = 20s}
+      type = mongodb
+    }
+  ]
+}
+connectors {
+  http {
+    connector_test_WH_D {
+      connect_timeout = 15s
+      enable = false
+      enable_pipelining = 100
+      headers {content-type = "application/json"}
+      pool_size = 8
+      pool_type = hash
+      ssl {
+        ciphers = []
+        depth = 10
+        enable = false
+        hibernate_after = 5s
+        log_level = notice
+        reuse_sessions = true
+        secure_renegotiate = true
+        verify = verify_peer
+        versions = [tlsv1.3, tlsv1.2]
+      }
+      url = "http://host.docker.internal:5000"
+    }
+  }
+}
+rule_engine {
+  ignore_sys_message = true
+  jq_function_default_timeout = 10s
+  rules {
+    rule_iqey {
+      actions = []
+      description = ""
+      metadata {created_at = 1703597768218}
+      sql = "SELECT\n  *\nFROM\n  \"t/#\",\n  \"$events/session_subscribed\""
+    }
+    rule_tpk7 {
+      actions = [
+        {function = console}
+      ]
+      description = ""
+      metadata {created_at = 1703598320911}
+      sql = "SELECT\n  *\nFROM\n  \"t/#\""
+    }
+    test_WH_D {
+      actions = ["webhook:test_WH_D"]
+      enable = true
+      metadata {created_at = 1703596787734}
+      sql = "SELECT\n  *\nFROM\n  \"#\",\n  \"$events/message_delivered\",\n  \"$events/message_acked\",\n  \"$events/message_dropped\",\n  \"$events/client_connected\",\n  \"$events/client_disconnected\",\n  \"$events/client_connack\",\n  \"$events/client_check_authz_complete\",\n  \"$events/session_subscribed\",\n  \"$events/session_unsubscribed\",\n  \"$events/delivery_dropped\""
+    }
+  }
+}
